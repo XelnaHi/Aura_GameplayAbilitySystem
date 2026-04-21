@@ -3,55 +3,38 @@
 
 #include "Actor/AuraEffectActor.h"
 
-#include "AbilitySystemComponent.h"
-#include "AbilitySystemInterface.h"
-#include "AbilitySystem/AuraAttributeSet.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystem/AuraAbilitySystemComponent.h"
 
-
-// Sets default values
 AAuraEffectActor::AAuraEffectActor()
 {
-	Mesh = CreateDefaultSubobject<UStaticMeshComponent>("Mesh");
-	Sphere = CreateDefaultSubobject<USphereComponent>("Sphere");
+	PrimaryActorTick.bCanEverTick = false;
 
-	SetRootComponent(Mesh);
-	Sphere->SetupAttachment(GetRootComponent());
-}
-
-void AAuraEffectActor::OnOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-                                 UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep,
-                                 const FHitResult& SweepResult)
-{
-	// TODO: Refactor to apply Gameplay Effect instead.
-	if (IAbilitySystemInterface* IASC = Cast<IAbilitySystemInterface>(OtherActor))
-	{
-		const UAuraAttributeSet* AuraAttributes = Cast<UAuraAttributeSet>(
-			IASC->GetAbilitySystemComponent()->GetAttributeSet(UAuraAttributeSet::StaticClass()));
-
-		// Breaking consnt-ness. Big NO NO!
-		UAuraAttributeSet* MutableAuraAttributes = const_cast<UAuraAttributeSet*>(AuraAttributes);
-
-		if (bIsMana)
-		{
-			MutableAuraAttributes->SetMana(AuraAttributes->GetMana() + PickupMagnitude);
-		}
-		else
-		{
-			MutableAuraAttributes->SetHealth(AuraAttributes->GetHealth() + PickupMagnitude);
-		}
-		Destroy();
-	}
-}
-
-void AAuraEffectActor::EndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-                                  UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
+	SetRootComponent(CreateDefaultSubobject<USceneComponent>(FName("SceneRoot")));
 }
 
 void AAuraEffectActor::BeginPlay()
 {
 	Super::BeginPlay();
+}
 
-	Sphere->OnComponentBeginOverlap.AddDynamic(this, &AAuraEffectActor::OnOverlap);
-	Sphere->OnComponentEndOverlap.AddDynamic(this, &AAuraEffectActor::EndOverlap);
+void AAuraEffectActor::ApplyEffectToTarget(AActor* TargetActor, const TSubclassOf<UGameplayEffect> GameplayEffectClass) const
+{
+	UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor);
+
+	if (TargetASC == nullptr) return;
+	
+	check(GameplayEffectClass);
+	
+	FGameplayEffectContextHandle EffectContextHandle = TargetASC->MakeEffectContext();
+	EffectContextHandle.AddSourceObject(this);
+	FGameplayEffectSpecHandle EffectSpecHandle = TargetASC->MakeOutgoingSpec(
+		GameplayEffectClass, 1.f, EffectContextHandle);
+	
+	// My understanding is that: .Data is TSharedPtr, which allows the creation of an object 
+	// (int his case, Data, of type TSharedPtr<FGameplayEffectSpec>), directly on the stack, while internally holding a raw pointer
+	// to the FGameplayEffectSpec instance. The TSharedPtr is being initialized with its value inside the `MakeOutgoingSpec` call.
+	// Then, we use `Get()`, which is a member function of the TSharedPtr class, which returns the raw pointer.
+	// Finally, we dereference the pointer in order to pass the reference to `ApplyGameplayEffectSpecToSelf`.
+	TargetASC->ApplyGameplayEffectSpecToSelf(*EffectSpecHandle.Data.Get());
 }
