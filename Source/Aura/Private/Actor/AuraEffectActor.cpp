@@ -22,7 +22,6 @@ void AAuraEffectActor::OnOverlap(UPrimitiveComponent* OverlappedComponent, AActo
                                  UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep,
                                  const FHitResult& SweepResult)
 {
-	
 	// TODO: Refactor to apply Gameplay Effect instead.
 	if (IAbilitySystemInterface* IASC = Cast<IAbilitySystemInterface>(OtherActor))
 	{
@@ -31,7 +30,15 @@ void AAuraEffectActor::OnOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 
 		// Breaking consnt-ness. Big NO NO!
 		UAuraAttributeSet* MutableAuraAttributes = const_cast<UAuraAttributeSet*>(AuraAttributes);
-		MutableAuraAttributes->SetHealth(AuraAttributes->GetHealth() - 15.f);
+
+		if (bIsMana)
+		{
+			MutableAuraAttributes->SetMana(AuraAttributes->GetMana() + PickupMagnitude);
+		}
+		else
+		{
+			MutableAuraAttributes->SetHealth(AuraAttributes->GetHealth() + PickupMagnitude);
+		}
 		Destroy();
 	}
 }

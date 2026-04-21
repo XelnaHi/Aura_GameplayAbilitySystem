@@ -30,4 +30,9 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UStaticMeshComponent> Mesh;
 	
+	UPROPERTY(EditAnywhere, Category="Stats")
+	float PickupMagnitude;
+	
+	UPROPERTY(EditAnywhere, Category="Stats")
+	bool bIsMana;
 };
